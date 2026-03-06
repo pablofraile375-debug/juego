@@ -33,7 +33,6 @@ body {
 }
 
 h1, h2 { margin-top: 0; }
-
 .stats p { margin: 6px 0; }
 
 .buttons {
@@ -93,6 +92,28 @@ canvas {
 .car-card p {
   margin: 4px 0;
   font-size: 0.9rem;
+}
+
+.preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.color-chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #b9c9ff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 40%) inset;
+}
+
+.mini-car {
+  width: 40px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgb(255 255 255 / 25%);
 }
 
 .car-card .actions {
