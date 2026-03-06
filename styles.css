@@ -2,7 +2,6 @@
   color-scheme: dark;
   --bg: #101322;
   --panel: #1b2238;
-  --accent: #6cf6ff;
   --ok: #77ff8a;
   --warn: #ffc857;
 }
@@ -37,7 +36,6 @@ h1, h2 { margin-top: 0; }
 
 .buttons {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 10px;
   margin: 12px 0;
 }
@@ -53,16 +51,9 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.game-wrap {
-  padding: 10px;
-  display: grid;
-  place-items: center;
-}
+.game-wrap { padding: 10px; display: grid; place-items: center; }
 
 canvas {
   width: 420px;
@@ -72,15 +63,26 @@ canvas {
   border: 2px solid #243259;
 }
 
-.shop-note {
-  color: #c9d3ff;
-  font-size: 0.9rem;
+.effect-box {
+  border: 2px solid #4f65b1;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 24%);
+  padding: 10px;
+  margin-bottom: 12px;
+  min-height: 100px;
+  display: grid;
+  gap: 4px;
 }
 
-.shop-list {
-  display: grid;
-  gap: 8px;
+.effect-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9fb2ff;
 }
+
+.shop-note { color: #c9d3ff; font-size: 0.9rem; }
+.shop-list { display: grid; gap: 8px; }
 
 .car-card {
   border: 1px solid #2f3e6f;
@@ -89,10 +91,7 @@ canvas {
   background: rgb(0 0 0 / 18%);
 }
 
-.car-card p {
-  margin: 4px 0;
-  font-size: 0.9rem;
-}
+.car-card p { margin: 4px 0; font-size: 0.9rem; }
 
 .preview-row {
   display: flex;
@@ -106,7 +105,6 @@ canvas {
   height: 18px;
   border-radius: 50%;
   border: 2px solid #b9c9ff;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 40%) inset;
 }
 
 .mini-car {
@@ -116,11 +114,7 @@ canvas {
   border: 1px solid rgb(255 255 255 / 25%);
 }
 
-.car-card .actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
+.car-card .actions { display: flex; gap: 8px; margin-top: 6px; }
 
 .tag {
   font-size: 0.75rem;

@@ -1,11 +1,16 @@
 # Juego de carreras (167 niveles)
 
-Videojuego web de carreras con enfoque más realista:
+Ahora el juego incluye mecánicas tipo arcade/Mario Kart:
 
 - **167 niveles** con dificultad progresiva.
-- **Sistema de dinero** por completar niveles, adelantar tráfico y hacer **casi choques**.
-- **Tienda con 7 coches** de más barato a más caro, mostrando el **color real antes de comprar**.
-- **Nitro con doble espacio** (doble pulsación de barra espaciadora) para acelerar fuerte por un tiempo limitado.
+- **Obstáculos de pista** (conos y manchas de aceite).
+- **Cajas sorpresa** con 8 efectos:
+  - 1 efecto especial: **cohete (+15m)**.
+  - 4 efectos buenos extra.
+  - 3 efectos malos.
+- **Cuadro a la derecha** que muestra la sorpresa que te tocó.
+- **Nitro en carretera**: ya no se activa manualmente, debes recogerlo y dura **5 segundos**.
+- Tienda de 7 coches con color real antes de comprar.
 
 ## Ejecutar
 
@@ -19,4 +24,3 @@ Abre `http://localhost:8000`.
 
 - Flecha izquierda / `A`: mover izquierda
 - Flecha derecha / `D`: mover derecha
-- Doble pulsación de `Espacio`: activar nitro
