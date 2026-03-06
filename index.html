@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carreras 167 Niveles</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="panel hud">
+      <h1>Carreras Extrema 167</h1>
+      <div class="stats">
+        <p><strong>Nivel:</strong> <span id="level">1</span>/167</p>
+        <p><strong>Dinero:</strong> $<span id="money">0</span></p>
+        <p><strong>Coche:</strong> <span id="carName">Starter</span></p>
+        <p><strong>Meta:</strong> <span id="target">0</span>m</p>
+        <p><strong>Distancia:</strong> <span id="distance">0</span>m</p>
+      </div>
+      <div class="buttons">
+        <button id="startBtn">Empezar / Reintentar</button>
+        <button id="nextBtn" disabled>Siguiente nivel</button>
+      </div>
+      <p id="message">Evita choques. Usa flechas o A/D para moverte.</p>
+    </section>
+
+    <section class="panel game-wrap">
+      <canvas id="game" width="420" height="640" aria-label="Juego de carreras"></canvas>
+    </section>
+
+    <section class="panel shop">
+      <h2>Tienda de coches</h2>
+      <p class="shop-note">Compra coches de más barato a más caro para aguantar niveles más difíciles.</p>
+      <div id="shopList" class="shop-list"></div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
