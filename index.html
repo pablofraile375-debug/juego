@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carreras 167 Niveles</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="panel hud">
+      <h1>Carreras Extrema 167</h1>
+      <div class="stats">
+        <p><strong>Nivel:</strong> <span id="level">1</span>/167</p>
+        <p><strong>Dinero:</strong> $<span id="money">0</span></p>
+        <p><strong>Coche:</strong> <span id="carName">Starter</span></p>
+        <p><strong>Velocidad:</strong> <span id="speed">0</span> km/h</p>
+        <p><strong>Nitro:</strong> <span id="nitro">No</span></p>
+        <p><strong>Meta:</strong> <span id="target">0</span>m</p>
+        <p><strong>Distancia:</strong> <span id="distance">0</span>m</p>
+      </div>
+      <div class="buttons">
+        <button id="startBtn">Empezar / Reintentar</button>
+        <button id="nextBtn" disabled>Siguiente nivel</button>
+      </div>
+      <p id="message">Evita choques, coge nitro en carretera y rompe cajas sorpresa.</p>
+    </section>
+
+    <section class="panel game-wrap">
+      <canvas id="game" width="420" height="640" aria-label="Juego de carreras"></canvas>
+    </section>
+
+    <section class="panel shop">
+      <h2>Tienda de coches</h2>
+      <div class="effect-box" id="effectBox">
+        <span class="effect-label">Sorpresa actual</span>
+        <strong id="effectTitle">Sin sorpresa</strong>
+        <small id="effectDesc">Rompe una caja para recibir efecto.</small>
+      </div>
+      <p class="shop-note">En la carretera aparecen obstáculos, nitro y cajas estilo Mario Kart.</p>
+      <div id="shopList" class="shop-list"></div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
