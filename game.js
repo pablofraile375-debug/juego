@@ -1,4 +1,5 @@
 const TOTAL_LEVELS = 167;
+const STORAGE_KEY = "carreras167-save-v6";
 const STORAGE_KEY = "carreras167-save-v5";
 
 const TOURNAMENT_STAGES = [
@@ -86,6 +87,13 @@ const state = {
     lapsTarget: 3,
     racers: [],
     winner: null,
+    lapLength: 1800,
+  },
+};
+
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const rect = (x, y, w, h) => ({ x: x - w / 2, y: y - h / 2, w, h });
+const intersects = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   },
 };
 
@@ -106,6 +114,12 @@ function currentCar() {
 }
 
 function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    level: state.level,
+    money: state.money,
+    selectedCar: state.selectedCar,
+    ownedCars: state.ownedCars,
+  }));
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
@@ -133,6 +147,7 @@ function loadSave() {
       state.selectedCar = data.selectedCar;
     }
   } catch {
+    // ignore
     // ignore corrupted save
   }
 }
@@ -187,6 +202,7 @@ function resetArcade() {
 }
 
 function createRacer(name, color, isHuman, controls, speedBase, aiSkill = 1) {
+  return { name, color, isHuman, controls, speedBase, aiSkill, progress: 0, lap: 0, boost: 0.9, offset: 0 };
   return {
     name,
     color,
@@ -205,6 +221,12 @@ function createRacer(name, color, isHuman, controls, speedBase, aiSkill = 1) {
 function resetRaceMode() {
   const car = currentCar();
   const racers = [];
+  if (state.mode === "tournament") {
+    const stage = TOURNAMENT_STAGES[state.race.stageIndex];
+    racers.push(createRacer("Tú", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 1.05));
+    for (let i = 0; i < stage.rivals; i += 1) {
+      racers.push(createRacer(`IA ${i + 1}`, `hsl(${(i * 67 + 20) % 360} 80% 65%)`, false, null, (6.7 + i * 0.45) * stage.difficulty, 0.9 + i * 0.06));
+    }
 
   if (state.mode === "tournament") {
     const stage = TOURNAMENT_STAGES[state.race.stageIndex];
@@ -227,6 +249,8 @@ function resetRaceMode() {
     ui.tournamentRound.textContent = stage.name;
     ui.tournamentInfo.textContent = `Rivales: ${stage.rivals} | Dificultad: ${stage.difficulty.toFixed(2)}`;
   } else {
+    racers.push(createRacer("J1", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 1.03));
+    racers.push(createRacer("J2", "#ffbb55", true, { left: "a", right: "d", up: "w", down: "s" }, Math.max(6.4, car.speed * 0.99)));
     racers.push(createRacer("J1", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 0.88));
     racers.push(createRacer("J2", "#ffbb55", true, { left: "a", right: "d", up: "w", down: "s" }, Math.max(6.4, car.speed * 0.85)));
     state.race.lapsTarget = 3;
@@ -235,6 +259,10 @@ function resetRaceMode() {
   }
 
   racers.forEach((r, i) => {
+    r.progress = -i * 30;
+    r.lap = 0;
+    r.offset = (i % 2 === 0 ? -0.15 : 0.15);
+  });
     r.progress = i * -0.6;
     r.theta = (-Math.PI / 2) + r.progress;
   });
@@ -315,6 +343,11 @@ function updateArcade(dt, now) {
   a.roadOffset = (a.roadOffset + (cfg.trafficSpeed + car.speed * 0.3 * nitroFactor) * 170 * dt) % 92;
 
   spawnArcade(now);
+  const pRect = rect(a.player.x, a.player.y, a.player.w, a.player.h);
+
+  for (const t of a.traffic) {
+    t.y += (cfg.trafficSpeed + car.speed * 0.22 + (nitroActive ? 1.1 : 0)) * 112 * dt;
+    if (intersects(pRect, rect(t.x, t.y, t.w, t.h)) && loseArcade()) return;
   const playerRect = rect(a.player.x, a.player.y, a.player.w, a.player.h);
 
   for (const t of a.traffic) {
@@ -332,6 +365,7 @@ function updateArcade(dt, now) {
 
   for (const h of a.hazards) {
     h.y += (cfg.trafficSpeed + car.speed * 0.26) * 110 * dt;
+    if (!intersects(pRect, rect(h.x, h.y, h.w, h.h))) continue;
     if (!intersects(playerRect, rect(h.x, h.y, h.w, h.h))) continue;
 
     if (h.kind === "oil") {
@@ -346,6 +380,10 @@ function updateArcade(dt, now) {
 
   for (const b of a.boxes) {
     b.y += (cfg.trafficSpeed + car.speed * 0.23) * 112 * dt;
+    if (!intersects(pRect, rect(b.x, b.y, b.w, b.h))) continue;
+    const s = surprises[Math.floor(Math.random() * surprises.length)];
+    s.apply();
+    setEffect(s.name, s.desc);
     if (!intersects(playerRect, rect(b.x, b.y, b.w, b.h))) continue;
 
     const surprise = surprises[Math.floor(Math.random() * surprises.length)];
@@ -356,6 +394,7 @@ function updateArcade(dt, now) {
 
   for (const n of a.nitros) {
     n.y += (cfg.trafficSpeed + car.speed * 0.24) * 112 * dt;
+    if (!intersects(pRect, rect(n.x, n.y, n.w, n.h))) continue;
     if (!intersects(playerRect, rect(n.x, n.y, n.w, n.h))) continue;
 
     a.nitroUntil = now + 5000;
@@ -375,6 +414,42 @@ function updateArcade(dt, now) {
   if (a.distance >= a.target) winArcade();
 }
 
+function trackCurveAt(distance) {
+  const d = distance * 0.0042;
+  return Math.sin(d) * 0.45 + Math.sin(d * 0.43 + 1.6) * 0.28;
+}
+
+function updateRace(dt) {
+  const race = state.race;
+  const lapLen = race.lapLength;
+
+  for (const r of race.racers) {
+    let steer = 0;
+    let throttle = 0;
+
+    if (r.isHuman) {
+      steer = (state.keys[r.controls.left] ? -1 : 0) + (state.keys[r.controls.right] ? 1 : 0);
+      throttle = (state.keys[r.controls.up] ? 1 : 0) - (state.keys[r.controls.down] ? 0.55 : 0);
+    } else {
+      const targetOffset = Math.sin((r.progress / 240) + r.aiSkill) * 0.2;
+      steer = clamp((targetOffset - r.offset) * 2.8, -1, 1);
+      throttle = 0.82 + r.aiSkill * 0.14;
+    }
+
+    r.offset = clamp(r.offset + steer * dt * 1.05, -0.62, 0.62);
+    r.boost = clamp(r.boost + throttle * dt * 1.6, 0.2, 1.5);
+
+    const curvePenalty = 1 - Math.abs(trackCurveAt(r.progress)) * 0.08;
+    const lanePenalty = 1 - Math.abs(r.offset) * 0.12;
+    const speed = (r.speedBase * 21 + r.boost * 16) * curvePenalty * lanePenalty;
+
+    r.progress += speed * dt;
+    r.lap = Math.floor(Math.max(0, r.progress) / lapLen);
+
+    if (r.lap >= race.lapsTarget && !race.winner) {
+      race.winner = r;
+      state.running = false;
+      state.won = r.name === "Tú" || r.name === "J1";
 function updateRace(dt) {
   const race = state.race;
 
@@ -414,6 +489,17 @@ function updateRace(dt) {
           renderShop();
           ui.message.textContent = `🏆 Ganaste ${TOURNAMENT_STAGES[state.race.stageIndex].name} +$${reward}`;
         } else {
+          ui.message.textContent = `Perdiste contra ${r.name}. Reintenta ronda.`;
+        }
+      } else {
+        ui.message.textContent = `Ganador PvP: ${r.name}`;
+      }
+    }
+  }
+
+  const p1 = race.racers[0];
+  state.arcade.speedKmh = Math.round(p1.speedBase * 18 + p1.boost * 35);
+  state.arcade.distance = p1.lap;
           ui.message.textContent = `Perdiste contra ${racer.name}. Reintenta ronda.`;
         }
       } else {
@@ -452,6 +538,12 @@ function drawHazard(h) {
     ctx.lineTo(h.x + 12, h.y + 14);
     ctx.closePath();
     ctx.fill();
+  } else {
+    ctx.fillStyle = "#1b1b1b";
+    ctx.beginPath();
+    ctx.ellipse(h.x, h.y, 14, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
     return;
   }
 
@@ -479,6 +571,8 @@ function drawNitro(n) {
 
 function drawArcade() {
   const a = state.arcade;
+  ctx.fillStyle = "#1f2d31";
+  ctx.fillRect(58, 0, 304, canvas.height);
 
   ctx.fillStyle = "#1f2d31";
   ctx.fillRect(58, 0, 304, canvas.height);
@@ -500,6 +594,120 @@ function drawArcade() {
   drawCar(a.player.x, a.player.y, a.player.w, a.player.h, currentCar().color, performance.now() < a.nitroUntil);
 }
 
+function drawMiniMapRace() {
+  const race = state.race;
+  const x = canvas.width - 118;
+  const y = 12;
+  const w = 104;
+  const h = 104;
+
+  ctx.fillStyle = "rgb(0 0 0 / 45%)";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#9bb5ff";
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.strokeStyle = "#e8edff";
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y + h / 2, 34, 42, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  for (const r of race.racers) {
+    const p = ((r.progress % race.lapLength) + race.lapLength) % race.lapLength;
+    const t = (p / race.lapLength) * Math.PI * 2;
+    const px = x + w / 2 + Math.cos(t - Math.PI / 2) * 34;
+    const py = y + h / 2 + Math.sin(t - Math.PI / 2) * 42;
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "10px sans-serif";
+  ctx.fillText("Mini mapa", x + 8, y + 14);
+}
+
+function drawRaceCurved() {
+  const race = state.race;
+  const player = race.racers[0];
+  const cameraDist = player.progress;
+
+  ctx.fillStyle = "#8cc3ff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height * 0.42);
+  ctx.fillStyle = "#2f6b36";
+  ctx.fillRect(0, canvas.height * 0.42, canvas.width, canvas.height * 0.58);
+
+  const slices = 60;
+  for (let i = slices; i >= 1; i -= 1) {
+    const z1 = i / slices;
+    const z0 = (i - 1) / slices;
+    const y1 = canvas.height * (0.42 + z1 * 0.58);
+    const y0 = canvas.height * (0.42 + z0 * 0.58);
+
+    const d1 = cameraDist + i * 28;
+    const d0 = cameraDist + (i - 1) * 28;
+
+    const c1 = trackCurveAt(d1) - player.offset * 0.85;
+    const c0 = trackCurveAt(d0) - player.offset * 0.85;
+
+    const w1 = 28 + z1 * 180;
+    const w0 = 28 + z0 * 180;
+
+    const cx1 = canvas.width / 2 + c1 * 160 * (1 - z1 + 0.3);
+    const cx0 = canvas.width / 2 + c0 * 160 * (1 - z0 + 0.3);
+
+    ctx.fillStyle = i % 2 === 0 ? "#5b5c63" : "#4e4f57";
+    ctx.beginPath();
+    ctx.moveTo(cx0 - w0, y0);
+    ctx.lineTo(cx0 + w0, y0);
+    ctx.lineTo(cx1 + w1, y1);
+    ctx.lineTo(cx1 - w1, y1);
+    ctx.closePath();
+    ctx.fill();
+
+    if (i % 8 < 4) {
+      ctx.fillStyle = "#eef2ff";
+      const laneW0 = w0 * 0.08;
+      const laneW1 = w1 * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(cx0 - laneW0, y0);
+      ctx.lineTo(cx0 + laneW0, y0);
+      ctx.lineTo(cx1 + laneW1, y1);
+      ctx.lineTo(cx1 - laneW1, y1);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  const lookAhead = 950;
+  for (let i = 1; i < race.racers.length; i += 1) {
+    const r = race.racers[i];
+    const delta = r.progress - player.progress;
+    if (delta < 20 || delta > lookAhead) continue;
+
+    const nz = delta / lookAhead;
+    const y = canvas.height * (0.9 - nz * 0.58);
+    const roadCurve = trackCurveAt(player.progress + delta) - player.offset * 0.85;
+    const cx = canvas.width / 2 + roadCurve * 160 * (nz + 0.25);
+    const roadHalf = 28 + (1 - nz) * 180;
+    const x = cx + r.offset * roadHalf * 0.65;
+
+    const carH = 8 + (1 - nz) * 34;
+    const carW = carH * 0.56;
+    drawCar(x, y, carW, carH, r.color);
+  }
+
+  drawCar(canvas.width / 2, canvas.height - 88, 40, 72, player.color);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 14px sans-serif";
+  let y = 24;
+  for (const r of race.racers) {
+    ctx.fillText(`${r.name}: ${Math.min(r.lap + 1, race.lapsTarget)}/${race.lapsTarget}`, 12, y);
+    y += 18;
+  }
+
+  drawMiniMapRace();
 function drawRaceCircuit() {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
@@ -620,6 +828,9 @@ function startCurrentMode() {
 
   if (state.mode === "tournament") {
     const stage = TOURNAMENT_STAGES[state.race.stageIndex];
+    ui.message.textContent = `Torneo ${stage.name}: curva real + mini mapa, gana a ${stage.rivals} IA.`;
+  } else {
+    ui.message.textContent = "PvP: igual que arcade pero en curva. J1 flechas, J2 WASD.";
     ui.message.textContent = `Torneo ${stage.name}: gana a ${stage.rivals} rivales IA.`;
   } else {
     ui.message.textContent = "PvP: J1 flechas, J2 WASD.";
@@ -677,6 +888,7 @@ function frame(ts) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (state.mode === "arcade") drawArcade();
+  else drawRaceCurved();
   else drawRaceCircuit();
 
   if (!state.running) {
