@@ -7,6 +7,8 @@ Incluye 3 modos de juego:
 - **2 Jugadores local**: estilo arcade en curva (J1 y J2 en el mismo teclado).
 
 Además, en los modos de curva se muestra **mini mapa** para ver por dónde va el circuito y los rivales.
+- **Torneo vs IA en circuito** (no recto): rondas de **16avos, 8avos, 4tos, semis y final**, con más rivales y más dificultad.
+- **2 Jugadores local** en circuito: mismo teclado.
 
 ## Controles
 

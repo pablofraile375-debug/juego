@@ -1,5 +1,6 @@
 const TOTAL_LEVELS = 167;
 const STORAGE_KEY = "carreras167-save-v6";
+const STORAGE_KEY = "carreras167-save-v5";
 
 const TOURNAMENT_STAGES = [
   { name: "16avos", rivals: 1, difficulty: 1.0 },
@@ -93,6 +94,20 @@ const state = {
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const rect = (x, y, w, h) => ({ x: x - w / 2, y: y - h / 2, w, h });
 const intersects = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  },
+};
+
+function clamp(v, mn, mx) {
+  return Math.max(mn, Math.min(mx, v));
+}
+
+function rect(x, y, w, h) {
+  return { x: x - w / 2, y: y - h / 2, w, h };
+}
+
+function intersects(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
 
 function currentCar() {
   return cars.find((c) => c.id === state.selectedCar) || cars[0];
@@ -105,11 +120,21 @@ function save() {
     selectedCar: state.selectedCar,
     ownedCars: state.ownedCars,
   }));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      level: state.level,
+      money: state.money,
+      selectedCar: state.selectedCar,
+      ownedCars: state.ownedCars,
+    })
+  );
 }
 
 function loadSave() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
+
   try {
     const data = JSON.parse(raw);
     state.level = clamp(Number(data.level || 1), 1, TOTAL_LEVELS);
@@ -123,6 +148,7 @@ function loadSave() {
     }
   } catch {
     // ignore
+    // ignore corrupted save
   }
 }
 
@@ -150,6 +176,7 @@ function levelConfig(level) {
 function resetArcade() {
   const a = state.arcade;
   const cfg = levelConfig(state.level);
+
   a.target = cfg.targetDistance;
   a.distance = 0;
   a.speedKmh = 0;
@@ -168,6 +195,7 @@ function resetArcade() {
   a.lastNitro = 0;
   a.player.x = canvas.width / 2;
   a.player.vx = 0;
+
   state.won = false;
   ui.nextBtn.disabled = true;
   setEffect("Sin sorpresa", "Rompe una caja para recibir efecto.");
@@ -175,6 +203,19 @@ function resetArcade() {
 
 function createRacer(name, color, isHuman, controls, speedBase, aiSkill = 1) {
   return { name, color, isHuman, controls, speedBase, aiSkill, progress: 0, lap: 0, boost: 0.9, offset: 0 };
+  return {
+    name,
+    color,
+    isHuman,
+    controls,
+    speedBase,
+    aiSkill,
+    progress: 0,
+    theta: -Math.PI / 2,
+    lap: 0,
+    boost: 0.7,
+    offset: 0,
+  };
 }
 
 function resetRaceMode() {
@@ -186,12 +227,32 @@ function resetRaceMode() {
     for (let i = 0; i < stage.rivals; i += 1) {
       racers.push(createRacer(`IA ${i + 1}`, `hsl(${(i * 67 + 20) % 360} 80% 65%)`, false, null, (6.7 + i * 0.45) * stage.difficulty, 0.9 + i * 0.06));
     }
+
+  if (state.mode === "tournament") {
+    const stage = TOURNAMENT_STAGES[state.race.stageIndex];
+    racers.push(createRacer("Tú", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 0.88));
+
+    for (let i = 0; i < stage.rivals; i += 1) {
+      racers.push(
+        createRacer(
+          `IA ${i + 1}`,
+          `hsl(${(i * 65 + 20) % 360} 80% 65%)`,
+          false,
+          null,
+          (6.8 + i * 0.5) * stage.difficulty,
+          0.9 + i * 0.05
+        )
+      );
+    }
+
     state.race.lapsTarget = 2 + Math.min(2, Math.floor(state.race.stageIndex / 2));
     ui.tournamentRound.textContent = stage.name;
     ui.tournamentInfo.textContent = `Rivales: ${stage.rivals} | Dificultad: ${stage.difficulty.toFixed(2)}`;
   } else {
     racers.push(createRacer("J1", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 1.03));
     racers.push(createRacer("J2", "#ffbb55", true, { left: "a", right: "d", up: "w", down: "s" }, Math.max(6.4, car.speed * 0.99)));
+    racers.push(createRacer("J1", car.color, true, { left: "left", right: "right", up: "up", down: "down" }, car.speed * 0.88));
+    racers.push(createRacer("J2", "#ffbb55", true, { left: "a", right: "d", up: "w", down: "s" }, Math.max(6.4, car.speed * 0.85)));
     state.race.lapsTarget = 3;
     ui.tournamentRound.textContent = "PvP";
     ui.tournamentInfo.textContent = "J1: Flechas | J2: WASD";
@@ -202,6 +263,10 @@ function resetRaceMode() {
     r.lap = 0;
     r.offset = (i % 2 === 0 ? -0.15 : 0.15);
   });
+    r.progress = i * -0.6;
+    r.theta = (-Math.PI / 2) + r.progress;
+  });
+
   state.race.racers = racers;
   state.race.winner = null;
   state.won = false;
@@ -216,6 +281,7 @@ function roadSpawnX() {
 function spawnArcade(now) {
   const a = state.arcade;
   const cfg = levelConfig(state.level);
+
   if (now - a.lastTraffic > cfg.trafficEvery && a.traffic.length < cfg.trafficCap) {
     a.lastTraffic = now;
     a.traffic.push({ x: roadSpawnX(), y: -90, w: 36, h: 66, near: false });
@@ -240,6 +306,7 @@ function loseArcade(message = "💥 Choque") {
     ui.message.textContent = "🛡️ Escudo te salvó";
     return false;
   }
+
   state.running = false;
   ui.message.textContent = `${message} en nivel ${state.level}`;
   return true;
@@ -248,10 +315,12 @@ function loseArcade(message = "💥 Choque") {
 function winArcade() {
   state.running = false;
   state.won = true;
+
   const gain = Math.round(levelConfig(state.level).reward * currentCar().reward);
   state.money += gain;
   save();
   renderShop();
+
   ui.nextBtn.disabled = state.level >= TOTAL_LEVELS;
   ui.message.textContent = `🏁 Nivel superado +$${gain}`;
 }
@@ -279,6 +348,13 @@ function updateArcade(dt, now) {
   for (const t of a.traffic) {
     t.y += (cfg.trafficSpeed + car.speed * 0.22 + (nitroActive ? 1.1 : 0)) * 112 * dt;
     if (intersects(pRect, rect(t.x, t.y, t.w, t.h)) && loseArcade()) return;
+  const playerRect = rect(a.player.x, a.player.y, a.player.w, a.player.h);
+
+  for (const t of a.traffic) {
+    t.y += (cfg.trafficSpeed + car.speed * 0.22 + (nitroActive ? 1.1 : 0)) * 112 * dt;
+
+    if (intersects(playerRect, rect(t.x, t.y, t.w, t.h)) && loseArcade()) return;
+
     const gap = Math.abs(a.player.x - t.x) - (a.player.w + t.w) / 2;
     const near = Math.abs(a.player.y - t.y) < 58 && gap > 0 && gap < 10;
     if (near && !t.near) {
@@ -290,12 +366,15 @@ function updateArcade(dt, now) {
   for (const h of a.hazards) {
     h.y += (cfg.trafficSpeed + car.speed * 0.26) * 110 * dt;
     if (!intersects(pRect, rect(h.x, h.y, h.w, h.h))) continue;
+    if (!intersects(playerRect, rect(h.x, h.y, h.w, h.h))) continue;
+
     if (h.kind === "oil") {
       a.slipUntil = now + 4500;
       ui.message.textContent = "🛢️ Derrape";
     } else if (loseArcade("💥 Obstáculo")) {
       return;
     }
+
     h.y = canvas.height + 200;
   }
 
@@ -305,12 +384,19 @@ function updateArcade(dt, now) {
     const s = surprises[Math.floor(Math.random() * surprises.length)];
     s.apply();
     setEffect(s.name, s.desc);
+    if (!intersects(playerRect, rect(b.x, b.y, b.w, b.h))) continue;
+
+    const surprise = surprises[Math.floor(Math.random() * surprises.length)];
+    surprise.apply();
+    setEffect(surprise.name, surprise.desc);
     b.y = canvas.height + 200;
   }
 
   for (const n of a.nitros) {
     n.y += (cfg.trafficSpeed + car.speed * 0.24) * 112 * dt;
     if (!intersects(pRect, rect(n.x, n.y, n.w, n.h))) continue;
+    if (!intersects(playerRect, rect(n.x, n.y, n.w, n.h))) continue;
+
     a.nitroUntil = now + 5000;
     ui.message.textContent = "⚡ Nitro 5s";
     n.y = canvas.height + 200;
@@ -321,6 +407,7 @@ function updateArcade(dt, now) {
   a.hazards = a.hazards.filter((x) => x.y < canvas.height + 120);
   a.boxes = a.boxes.filter((x) => x.y < canvas.height + 120);
   a.nitros = a.nitros.filter((x) => x.y < canvas.height + 120);
+
   state.money += (before - a.traffic.length) * Math.round(cfg.passReward * car.reward * moneyFactor);
 
   a.distance += (car.speed * 8.2 + cfg.trafficSpeed * 6.6) * nitroFactor * dt;
@@ -363,6 +450,35 @@ function updateRace(dt) {
       race.winner = r;
       state.running = false;
       state.won = r.name === "Tú" || r.name === "J1";
+function updateRace(dt) {
+  const race = state.race;
+
+  for (const racer of race.racers) {
+    let steer = 0;
+    let throttle = 0;
+
+    if (racer.isHuman) {
+      steer = (state.keys[racer.controls.left] ? -1 : 0) + (state.keys[racer.controls.right] ? 1 : 0);
+      throttle = (state.keys[racer.controls.up] ? 1 : 0) - (state.keys[racer.controls.down] ? 0.5 : 0);
+    } else {
+      const targetOffset = Math.sin((performance.now() / 700) + racer.aiSkill) * 0.16;
+      steer = clamp((targetOffset - racer.offset) * 3, -1, 1);
+      throttle = 0.8 + racer.aiSkill * 0.14;
+    }
+
+    racer.offset = clamp(racer.offset + steer * dt * 0.8, -0.5, 0.5);
+    racer.boost = clamp(racer.boost + throttle * dt * 1.6, 0.25, 1.45);
+
+    const speed = (racer.speedBase * 0.008 + racer.boost * 0.0022) * (1 - Math.abs(racer.offset) * 0.1);
+    racer.progress += speed;
+    racer.theta = (-Math.PI / 2) + (racer.progress % (Math.PI * 2));
+    racer.lap = Math.floor(racer.progress / (Math.PI * 2));
+
+    if (racer.lap >= race.lapsTarget && !race.winner) {
+      race.winner = racer;
+      state.running = false;
+      state.won = racer.name === "Tú" || racer.name === "J1";
+
       ui.nextBtn.disabled = !(state.mode === "tournament" && state.won && state.race.stageIndex < TOURNAMENT_STAGES.length - 1);
 
       if (state.mode === "tournament") {
@@ -384,6 +500,17 @@ function updateRace(dt) {
   const p1 = race.racers[0];
   state.arcade.speedKmh = Math.round(p1.speedBase * 18 + p1.boost * 35);
   state.arcade.distance = p1.lap;
+          ui.message.textContent = `Perdiste contra ${racer.name}. Reintenta ronda.`;
+        }
+      } else {
+        ui.message.textContent = `Ganador PvP: ${racer.name}`;
+      }
+    }
+  }
+
+  const lead = race.racers[0];
+  state.arcade.speedKmh = Math.round((lead.speedBase * 22) + lead.boost * 80);
+  state.arcade.distance = lead.lap;
   state.arcade.target = race.lapsTarget;
 }
 
@@ -394,6 +521,7 @@ function drawCar(x, y, w, h, color, nitro = false) {
     ctx.ellipse(x, y + h / 2 + 9, 9, 13, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+
   ctx.fillStyle = color;
   ctx.fillRect(x - w / 2, y - h / 2, w, h);
   ctx.fillStyle = "#0d111d";
@@ -416,6 +544,13 @@ function drawHazard(h) {
     ctx.ellipse(h.x, h.y, 14, 10, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+    return;
+  }
+
+  ctx.fillStyle = "#1b1b1b";
+  ctx.beginPath();
+  ctx.ellipse(h.x, h.y, 14, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawBox(b) {
@@ -438,6 +573,10 @@ function drawArcade() {
   const a = state.arcade;
   ctx.fillStyle = "#1f2d31";
   ctx.fillRect(58, 0, 304, canvas.height);
+
+  ctx.fillStyle = "#1f2d31";
+  ctx.fillRect(58, 0, 304, canvas.height);
+
   ctx.fillStyle = "#697079";
   ctx.fillRect(54, 0, 4, canvas.height);
   ctx.fillRect(362, 0, 4, canvas.height);
@@ -569,10 +708,52 @@ function drawRaceCurved() {
   }
 
   drawMiniMapRace();
+function drawRaceCircuit() {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const major = 145;
+  const minor = 245;
+
+  ctx.fillStyle = "#0f3d1f";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#4d4d53";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, major + 48, minor + 48, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#10261a";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, major - 48, minor - 48, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([16, 14]);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, major, minor, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (const racer of state.race.racers) {
+    const laneOffset = racer.offset * 26;
+    const x = cx + Math.cos(racer.theta) * (major + laneOffset);
+    const y = cy + Math.sin(racer.theta) * (minor + laneOffset);
+    drawCar(x, y, 30, 54, racer.color, false);
+  }
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 15px sans-serif";
+  let y = 24;
+  for (const racer of state.race.racers) {
+    ctx.fillText(`${racer.name}: vuelta ${Math.min(racer.lap + 1, state.race.lapsTarget)}/${state.race.lapsTarget}`, 12, y);
+    y += 20;
+  }
 }
 
 function updateHUD() {
   const nitro = Math.max(0, state.arcade.nitroUntil - performance.now());
+
   ui.level.textContent = String(state.level);
   ui.money.textContent = String(Math.floor(state.money));
   ui.carName.textContent = currentCar().name;
@@ -584,6 +765,7 @@ function updateHUD() {
 
 function renderShop() {
   ui.shopList.innerHTML = "";
+
   for (const car of cars) {
     const owned = state.ownedCars.includes(car.id);
     const selected = state.selectedCar === car.id;
@@ -649,6 +831,9 @@ function startCurrentMode() {
     ui.message.textContent = `Torneo ${stage.name}: curva real + mini mapa, gana a ${stage.rivals} IA.`;
   } else {
     ui.message.textContent = "PvP: igual que arcade pero en curva. J1 flechas, J2 WASD.";
+    ui.message.textContent = `Torneo ${stage.name}: gana a ${stage.rivals} rivales IA.`;
+  } else {
+    ui.message.textContent = "PvP: J1 flechas, J2 WASD.";
   }
 
   resetRaceMode();
@@ -704,6 +889,7 @@ function frame(ts) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (state.mode === "arcade") drawArcade();
   else drawRaceCurved();
+  else drawRaceCircuit();
 
   if (!state.running) {
     ctx.fillStyle = "rgb(0 0 0 / 35%)";
