@@ -68,6 +68,7 @@ const state = {
   lastNitroSpawn: 0,
   player: { x: canvas.width / 2, y: canvas.height - 100, width: 36, height: 66, vx: 0 },
   player2: { x: canvas.width / 2 + 60, y: canvas.height - 200, width: 36, height: 66, vx: 0, distance: 0, speedKmh: 0 },
+  tournamentRivals: [],
   speedKmh: 0,
   nitroActiveUntil: 0,
   shield: 0,
@@ -155,6 +156,23 @@ function currentConfig() {
   return levelConfig(state.level);
 }
 
+function tournamentRivalCount() {
+  return [1, 1, 1, 2, 2, 2][state.tournamentRoundIndex] || 1;
+}
+
+function initTournamentRivals() {
+  const count = tournamentRivalCount();
+  state.tournamentRivals = Array.from({ length: count }, (_, i) => ({
+    x: canvas.width / 2 + (i % 2 === 0 ? -70 : 70),
+    y: canvas.height - 220 - i * 25,
+    width: 36,
+    height: 66,
+    distance: 0,
+    speedKmh: 0,
+    color: i === 0 ? "#ff5d73" : "#ffa347",
+  }));
+}
+
 function resetLevel() {
   const cfg = currentConfig();
   state.distance = 0;
@@ -175,6 +193,8 @@ function resetLevel() {
   state.player2.vx = 0;
   state.player2.distance = 0;
   state.player2.speedKmh = 0;
+  state.tournamentRivals = [];
+  if (state.mode === "tournament") initTournamentRivals();
   state.speedKmh = 0;
   state.nitroActiveUntil = 0;
   state.shield = 0;
@@ -452,6 +472,27 @@ function updateSinglePlayer(dt, now) {
   }
 
   state.distance += (car.speed * 8.2 + cfg.trafficSpeed * 6.6) * nitroFactor * dt;
+
+  if (state.mode === "tournament") {
+    const baseRival = car.speed * 7.7 + cfg.trafficSpeed * 6.1;
+    for (const [i, rival] of state.tournamentRivals.entries()) {
+      const variance = Math.sin((now / 450) + i) * 0.9;
+      const rivalStep = (baseRival + i * 0.45 + variance) * dt;
+      rival.distance += rivalStep;
+      rival.speedKmh = Math.max(120, rivalStep * 22 / Math.max(dt, 0.001));
+      const gap = state.distance - rival.distance;
+      rival.y = clamp(state.player.y + gap * 0.7, 90, canvas.height - 140);
+    }
+
+    const farthestRival = state.tournamentRivals.reduce((m, r) => Math.max(m, r.distance), 0);
+    if (farthestRival >= state.targetDistance && state.distance < farthestRival) {
+      state.running = false;
+      state.wonLevel = false;
+      ui.message.textContent = `❌ Te ganó el rival en ${TOURNAMENT_ROUNDS[state.tournamentRoundIndex]}.`;
+      return;
+    }
+  }
+
   if (state.distance >= state.targetDistance) winLevel();
 }
 
@@ -536,6 +577,23 @@ function draw() {
   drawCar(state.player.x, state.player.y, state.player.width, state.player.height, currentCar().color, performance.now() < state.nitroActiveUntil);
   if (state.mode === "versus") {
     drawCar(state.player2.x, state.player2.y, state.player2.width, state.player2.height, "#ff5d73", false);
+  }
+  if (state.mode === "tournament") {
+    for (const rival of state.tournamentRivals) {
+      drawCar(rival.x, rival.y, rival.width, rival.height, rival.color, false);
+    }
+
+    const ranking = [{ name: "Tú", distance: state.distance }, ...state.tournamentRivals.map((r, i) => ({ name: `Rival ${i + 1}`, distance: r.distance }))]
+      .sort((a, b) => b.distance - a.distance);
+    const pos = ranking.findIndex((r) => r.name === "Tú") + 1;
+
+    ctx.fillStyle = "rgb(0 0 0 / 55%)";
+    ctx.fillRect(12, 12, 188, 58);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(`Posición: ${pos}/${ranking.length}`, 20, 34);
+    ctx.fillText(`Tu avance: ${Math.round(state.distance)}m`, 20, 54);
   }
 
   if (!state.running) {
