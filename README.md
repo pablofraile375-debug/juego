@@ -1,15 +1,16 @@
 # Juego de carreras (167 niveles)
 
-Ahora el juego incluye mecánicas tipo arcade/Mario Kart:
+Ahora el juego incluye 3 modos:
 
-- **167 niveles** con dificultad progresiva.
-- **Obstáculos de pista** (conos y manchas de aceite).
-- **Cajas sorpresa** con 8 efectos:
-  - 1 efecto especial: **cohete (+15m)**.
-  - 4 efectos buenos extra.
-  - 3 efectos malos.
-- **Cuadro a la derecha** que muestra la sorpresa que te tocó.
-- **Nitro en carretera**: ya no se activa manualmente, debes recogerlo y dura **5 segundos**.
+- **Clásico**: 167 niveles con dificultad progresiva.
+- **Torneo**: ronda de **32avos, 16avos, 8vos, 4tos, semifinal y final**.
+- **2 Jugadores**: carrera directa en la misma pista.
+
+Además mantiene mecánicas tipo arcade/Mario Kart:
+
+- Obstáculos de pista (conos y manchas de aceite).
+- Cajas sorpresa con 8 efectos.
+- Nitro en carretera (5 segundos).
 - Tienda de 7 coches con color real antes de comprar.
 
 ## Ejecutar
@@ -22,5 +23,5 @@ Abre `http://localhost:8000`.
 
 ## Controles
 
-- Flecha izquierda / `A`: mover izquierda
-- Flecha derecha / `D`: mover derecha
+- Jugador 1: Flecha izquierda / `A` y flecha derecha / `D`.
+- Jugador 2 (modo 2 Jugadores): `J` izquierda y `L` derecha.

@@ -34,6 +34,20 @@ body {
 h1, h2 { margin-top: 0; }
 .stats p { margin: 6px 0; }
 
+.mode-selector {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+select {
+  background: #2b3763;
+  color: #eef3ff;
+  border: 1px solid #5568aa;
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .buttons {
   display: grid;
   gap: 10px;
