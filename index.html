@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="msvalidate.01" content="512E7BD20C464B99DFA7213AF25B8C12" />
   <title>Carreras 167 Niveles</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -10,14 +11,26 @@
   <main class="layout">
     <section class="panel hud">
       <h1>Carreras Extrema 167</h1>
+
+      <div class="mode-selector">
+        <label for="modeSelect"><strong>Modo:</strong></label>
+        <select id="modeSelect">
+          <option value="classic">Clásico (167 niveles)</option>
+          <option value="tournament">Torneo (32 → Final)</option>
+          <option value="versus">2 Jugadores</option>
+        </select>
+      </div>
+
       <div class="stats">
         <p><strong>Nivel:</strong> <span id="level">1</span>/167</p>
+        <p><strong>Ronda torneo:</strong> <span id="tournamentRound">-</span></p>
         <p><strong>Dinero:</strong> $<span id="money">0</span></p>
         <p><strong>Coche:</strong> <span id="carName">Starter</span></p>
         <p><strong>Velocidad:</strong> <span id="speed">0</span> km/h</p>
         <p><strong>Nitro:</strong> <span id="nitro">No</span></p>
         <p><strong>Meta:</strong> <span id="target">0</span>m</p>
         <p><strong>Distancia:</strong> <span id="distance">0</span>m</p>
+        <p><strong>J1:</strong> <span id="p1Distance">0</span>m | <strong>J2:</strong> <span id="p2Distance">0</span>m</p>
       </div>
       <div class="buttons">
         <button id="startBtn">Empezar / Reintentar</button>

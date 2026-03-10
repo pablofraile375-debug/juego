@@ -1,5 +1,6 @@
 const TOTAL_LEVELS = 167;
-const STORAGE_KEY = "carreras167-save-v3";
+const STORAGE_KEY = "carreras167-save-v4";
+const TOURNAMENT_ROUNDS = ["32avos", "16avos", "8vos", "4tos", "Semifinal", "Final"];
 
 const cars = [
   { id: "starter", name: "Starter", price: 0, color: "#3fc1ff", speed: 6.0, control: 4.2, reward: 1 },
@@ -12,29 +13,31 @@ const cars = [
 ];
 
 const surprises = [
-  // 4 buenas inventadas + cohete
-  { name: "🚀 Cohete", desc: "+15m instantáneos", type: "good", apply: () => { state.distance += 15; } },
-  { name: "💰 Bolsa", desc: "+$220", type: "good", apply: () => { state.money += 220; } },
-  { name: "🛡️ Escudo", desc: "Ignora 1 choque", type: "good", apply: () => { state.shield += 1; } },
-  { name: "🧲 Imán", desc: "Más dinero 7s", type: "good", apply: () => { state.moneyBoostUntil = performance.now() + 7000; } },
-  { name: "🛠️ Asfalto limpio", desc: "Quita obstáculos de pista", type: "good", apply: () => { state.trackHazards = []; } },
-  // 3 malas
-  { name: "🕳️ Bache", desc: "-8m", type: "bad", apply: () => { state.distance = Math.max(0, state.distance - 8); } },
-  { name: "💸 Multa", desc: "-$180", type: "bad", apply: () => { state.money = Math.max(0, state.money - 180); } },
-  { name: "🛢️ Derrape", desc: "Control reducido 5s", type: "bad", apply: () => { state.slipUntil = performance.now() + 5000; } },
+  { name: "🚀 Cohete", desc: "+15m instantáneos", apply: () => { state.distance += 15; } },
+  { name: "💰 Bolsa", desc: "+$220", apply: () => { state.money += 220; } },
+  { name: "🛡️ Escudo", desc: "Ignora 1 choque", apply: () => { state.shield += 1; } },
+  { name: "🧲 Imán", desc: "Más dinero 7s", apply: () => { state.moneyBoostUntil = performance.now() + 7000; } },
+  { name: "🛠️ Asfalto limpio", desc: "Quita obstáculos de pista", apply: () => { state.trackHazards = []; } },
+  { name: "🕳️ Bache", desc: "-8m", apply: () => { state.distance = Math.max(0, state.distance - 8); } },
+  { name: "💸 Multa", desc: "-$180", apply: () => { state.money = Math.max(0, state.money - 180); } },
+  { name: "🛢️ Derrape", desc: "Control reducido 5s", apply: () => { state.slipUntil = performance.now() + 5000; } },
 ];
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 const ui = {
+  modeSelect: document.getElementById("modeSelect"),
   level: document.getElementById("level"),
+  tournamentRound: document.getElementById("tournamentRound"),
   money: document.getElementById("money"),
   carName: document.getElementById("carName"),
   speed: document.getElementById("speed"),
   nitro: document.getElementById("nitro"),
   target: document.getElementById("target"),
   distance: document.getElementById("distance"),
+  p1Distance: document.getElementById("p1Distance"),
+  p2Distance: document.getElementById("p2Distance"),
   message: document.getElementById("message"),
   startBtn: document.getElementById("startBtn"),
   nextBtn: document.getElementById("nextBtn"),
@@ -44,6 +47,8 @@ const ui = {
 };
 
 const state = {
+  mode: "classic",
+  tournamentRoundIndex: 0,
   level: 1,
   money: 0,
   selectedCar: "starter",
@@ -62,18 +67,19 @@ const state = {
   lastBoxSpawn: 0,
   lastNitroSpawn: 0,
   player: { x: canvas.width / 2, y: canvas.height - 100, width: 36, height: 66, vx: 0 },
+  player2: { x: canvas.width / 2 + 60, y: canvas.height - 200, width: 36, height: 66, vx: 0, distance: 0, speedKmh: 0 },
   speedKmh: 0,
   nitroActiveUntil: 0,
   shield: 0,
   slipUntil: 0,
   moneyBoostUntil: 0,
-  keys: { left: false, right: false },
+  keys: { left: false, right: false, p2Left: false, p2Right: false },
   lastTime: 0,
 };
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function rectCenter(obj) { return { x: obj.x - obj.w / 2, y: obj.y - obj.h / 2, w: obj.w, h: obj.h }; }
-function rectPlayer() { return { x: state.player.x - state.player.width / 2, y: state.player.y - state.player.height / 2, w: state.player.width, h: state.player.height }; }
+function rectPlayer(player = state.player) { return { x: player.x - player.width / 2, y: player.y - player.height / 2, w: player.width, h: player.height }; }
 function intersects(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
 function setEffectBox(title, desc) {
@@ -127,8 +133,30 @@ function levelConfig(level) {
   };
 }
 
+function tournamentConfig() {
+  const idx = state.tournamentRoundIndex;
+  const difficulty = idx / (TOURNAMENT_ROUNDS.length - 1);
+  return {
+    trafficSpeed: 3.1 + difficulty * 3.4,
+    targetDistance: Math.round(1200 + difficulty * 2400),
+    trafficEvery: 820 - difficulty * 280,
+    hazardEvery: 1500 - difficulty * 450,
+    boxEvery: 3200,
+    nitroEvery: 4700,
+    reward: 500 + idx * 300,
+    nearMissReward: 28 + idx * 8,
+    passReward: 12 + idx * 3,
+    trafficCap: 6 + idx,
+  };
+}
+
+function currentConfig() {
+  if (state.mode === "tournament") return tournamentConfig();
+  return levelConfig(state.level);
+}
+
 function resetLevel() {
-  const cfg = levelConfig(state.level);
+  const cfg = currentConfig();
   state.distance = 0;
   state.targetDistance = cfg.targetDistance;
   state.roadOffset = 0;
@@ -143,27 +171,38 @@ function resetLevel() {
   state.wonLevel = false;
   state.player.x = canvas.width / 2;
   state.player.vx = 0;
+  state.player2.x = canvas.width / 2 + 60;
+  state.player2.vx = 0;
+  state.player2.distance = 0;
+  state.player2.speedKmh = 0;
   state.speedKmh = 0;
   state.nitroActiveUntil = 0;
   state.shield = 0;
   state.slipUntil = 0;
   state.moneyBoostUntil = 0;
   ui.nextBtn.disabled = true;
-  ui.message.textContent = `Nivel ${state.level}: evita tráfico, obstáculos y usa cajas sorpresa.`;
+  if (state.mode === "tournament") {
+    ui.message.textContent = `Torneo: ${TOURNAMENT_ROUNDS[state.tournamentRoundIndex]} - gana esta carrera.`;
+  } else if (state.mode === "versus") {
+    ui.message.textContent = "2 Jugadores: J1 usa A/D o flechas, J2 usa J/L.";
+  } else {
+    ui.message.textContent = `Nivel ${state.level}: evita tráfico, obstáculos y usa cajas sorpresa.`;
+  }
   setEffectBox("Sin sorpresa", "Rompe una caja para recibir efecto.");
   updateHUD();
 }
 
 function updateHUD() {
-  const now = performance.now();
-  const nitroLeft = Math.max(0, state.nitroActiveUntil - now);
-  ui.level.textContent = String(state.level);
-  ui.money.textContent = String(Math.floor(state.money));
+  ui.level.textContent = state.level;
+  ui.money.textContent = Math.round(state.money);
   ui.carName.textContent = currentCar().name;
-  ui.speed.textContent = String(Math.floor(state.speedKmh));
-  ui.nitro.textContent = nitroLeft > 0 ? `${(nitroLeft / 1000).toFixed(1)}s` : "No";
-  ui.target.textContent = String(state.targetDistance);
-  ui.distance.textContent = String(Math.floor(state.distance));
+  ui.speed.textContent = Math.round(state.mode === "versus" ? Math.max(state.speedKmh, state.player2.speedKmh) : state.speedKmh);
+  ui.nitro.textContent = performance.now() < state.nitroActiveUntil ? "Sí" : "No";
+  ui.target.textContent = Math.round(state.targetDistance);
+  ui.distance.textContent = Math.round(state.distance);
+  ui.tournamentRound.textContent = state.mode === "tournament" ? TOURNAMENT_ROUNDS[state.tournamentRoundIndex] : "-";
+  ui.p1Distance.textContent = Math.round(state.distance);
+  ui.p2Distance.textContent = state.mode === "versus" ? Math.round(state.player2.distance) : "-";
 }
 
 function renderShop() {
@@ -172,10 +211,11 @@ function renderShop() {
     const owned = state.ownedCars.includes(car.id);
     const selected = state.selectedCar === car.id;
 
-    const card = document.createElement("div");
+    const card = document.createElement("article");
     card.className = "car-card";
     card.innerHTML = `
-      <p><strong>${car.name}</strong> - $${car.price}</p>
+      <h3>${car.name}</h3>
+      <p>Precio: $${car.price.toLocaleString()}</p>
       <p>Velocidad: ${car.speed.toFixed(1)} | Control: ${car.control.toFixed(1)} | Bonus dinero: x${car.reward.toFixed(2)}</p>
       <div class="preview-row">
         <span class="color-chip" style="background:${car.color}" title="Color ${car.name}"></span>
@@ -224,7 +264,8 @@ function roadSpawnX() {
 }
 
 function spawnEntities(now) {
-  const cfg = levelConfig(state.level);
+  if (state.mode === "versus") return;
+  const cfg = currentConfig();
 
   if (now - state.lastTrafficSpawn > cfg.trafficEvery && state.traffic.length < cfg.trafficCap) {
     state.lastTrafficSpawn = now;
@@ -262,7 +303,9 @@ function hitOrShield(reason) {
   }
   state.running = false;
   state.nitroActiveUntil = 0;
-  ui.message.textContent = `💥 Choque en nivel ${state.level}. Pulsa Empezar/Reintentar.`;
+  ui.message.textContent = state.mode === "tournament"
+    ? `💥 Eliminado en ${TOURNAMENT_ROUNDS[state.tournamentRoundIndex]}. Reintenta.`
+    : `💥 Choque. Pulsa Empezar/Reintentar.`;
   return true;
 }
 
@@ -270,21 +313,67 @@ function winLevel() {
   state.running = false;
   state.nitroActiveUntil = 0;
   state.wonLevel = true;
-  const cfg = levelConfig(state.level);
-  const bonus = Math.round(cfg.reward * currentCar().reward);
-  state.money += bonus;
-  ui.message.textContent = `🏁 Nivel superado. Premio: $${bonus}.`;
-  ui.nextBtn.disabled = state.level >= TOTAL_LEVELS;
+
+  if (state.mode === "tournament") {
+    const cfg = tournamentConfig();
+    state.money += cfg.reward;
+    if (state.tournamentRoundIndex === TOURNAMENT_ROUNDS.length - 1) {
+      ui.message.textContent = `🏆 ¡Campeón del torneo! Premio total +$${cfg.reward}.`;
+      ui.nextBtn.disabled = true;
+    } else {
+      ui.message.textContent = `✅ Pasas a la siguiente ronda. Premio +$${cfg.reward}.`;
+      ui.nextBtn.disabled = false;
+    }
+  } else {
+    const cfg = levelConfig(state.level);
+    const bonus = Math.round(cfg.reward * currentCar().reward);
+    state.money += bonus;
+    ui.message.textContent = `🏁 Nivel superado. Premio: $${bonus}.`;
+    ui.nextBtn.disabled = state.level >= TOTAL_LEVELS;
+  }
+
   save();
   renderShop();
   updateHUD();
 }
 
-function update(dt, now) {
-  if (!state.running) return;
+function winVersus(winner) {
+  state.running = false;
+  state.wonLevel = true;
+  ui.nextBtn.disabled = true;
+  ui.message.textContent = winner === 1 ? "🏁 Gana Jugador 1" : "🏁 Gana Jugador 2";
+}
 
+function updateVersus(dt) {
   const car = currentCar();
-  const cfg = levelConfig(state.level);
+  const steer1 = (state.keys.left ? -1 : 0) + (state.keys.right ? 1 : 0);
+  const steer2 = (state.keys.p2Left ? -1 : 0) + (state.keys.p2Right ? 1 : 0);
+
+  state.player.vx += steer1 * car.control * dt * 9.4;
+  state.player.vx *= 0.86;
+  state.player.x = clamp(state.player.x + state.player.vx, 86, canvas.width - 86);
+
+  state.player2.vx += steer2 * car.control * dt * 9.4;
+  state.player2.vx *= 0.86;
+  state.player2.x = clamp(state.player2.x + state.player2.vx, 86, canvas.width - 86);
+
+  const boost1 = Math.abs(steer1) > 0 ? 1.08 : 1;
+  const boost2 = Math.abs(steer2) > 0 ? 1.08 : 1;
+  state.speedKmh = 165 * boost1;
+  state.player2.speedKmh = 165 * boost2;
+
+  state.distance += 72 * boost1 * dt;
+  state.player2.distance += 72 * boost2 * dt;
+  state.targetDistance = 1000;
+
+  if (state.distance >= state.targetDistance || state.player2.distance >= state.targetDistance) {
+    winVersus(state.distance >= state.targetDistance ? 1 : 2);
+  }
+}
+
+function updateSinglePlayer(dt, now) {
+  const car = currentCar();
+  const cfg = currentConfig();
   const nitroActive = now < state.nitroActiveUntil;
   const nitroFactor = nitroActive ? 1.65 : 1;
   const slipFactor = now < state.slipUntil ? 0.6 : 1;
@@ -364,7 +453,12 @@ function update(dt, now) {
 
   state.distance += (car.speed * 8.2 + cfg.trafficSpeed * 6.6) * nitroFactor * dt;
   if (state.distance >= state.targetDistance) winLevel();
+}
 
+function update(dt, now) {
+  if (!state.running) return;
+  if (state.mode === "versus") updateVersus(dt);
+  else updateSinglePlayer(dt, now);
   updateHUD();
 }
 
@@ -440,6 +534,9 @@ function draw() {
   for (const n of state.nitroPacks) drawNitroPack(n);
 
   drawCar(state.player.x, state.player.y, state.player.width, state.player.height, currentCar().color, performance.now() < state.nitroActiveUntil);
+  if (state.mode === "versus") {
+    drawCar(state.player2.x, state.player2.y, state.player2.width, state.player2.height, "#ff5d73", false);
+  }
 
   if (!state.running) {
     ctx.fillStyle = "rgb(0 0 0 / 45%)";
@@ -447,7 +544,7 @@ function draw() {
     ctx.fillStyle = "#fff";
     ctx.font = "bold 24px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(state.wonLevel ? "Nivel superado" : "Pulsa Empezar", canvas.width / 2, canvas.height / 2);
+    ctx.fillText(state.wonLevel ? "¡Ronda superada!" : "Pulsa Empezar", canvas.width / 2, canvas.height / 2);
   }
 }
 
@@ -460,9 +557,27 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
+ui.modeSelect.addEventListener("change", (e) => {
+  state.mode = e.target.value;
+  state.running = false;
+  state.wonLevel = false;
+  if (state.mode === "tournament") state.tournamentRoundIndex = 0;
+  resetLevel();
+});
+
 ui.startBtn.onclick = () => { resetLevel(); state.running = true; };
 ui.nextBtn.onclick = () => {
   if (!state.wonLevel) return;
+
+  if (state.mode === "tournament") {
+    if (state.tournamentRoundIndex < TOURNAMENT_ROUNDS.length - 1) {
+      state.tournamentRoundIndex += 1;
+      resetLevel();
+      state.running = true;
+    }
+    return;
+  }
+
   if (state.level < TOTAL_LEVELS) {
     state.level += 1;
     save();
@@ -475,11 +590,15 @@ window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   if (key === "arrowleft" || key === "a") state.keys.left = true;
   if (key === "arrowright" || key === "d") state.keys.right = true;
+  if (key === "j") state.keys.p2Left = true;
+  if (key === "l") state.keys.p2Right = true;
 });
 window.addEventListener("keyup", (e) => {
   const key = e.key.toLowerCase();
   if (key === "arrowleft" || key === "a") state.keys.left = false;
   if (key === "arrowright" || key === "d") state.keys.right = false;
+  if (key === "j") state.keys.p2Left = false;
+  if (key === "l") state.keys.p2Right = false;
 });
 
 loadSave();
